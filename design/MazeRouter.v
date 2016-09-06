@@ -64,7 +64,6 @@ reg [GRID_WIDTH-1:0] wave_fifo [0:MAX_GRID-1];
 reg [GRID_WIDTH-1:0] wave_grid_n;
 reg [GRID_WIDTH-1:0] wave_fifo_rp, wave_fifo_wp, n_wave_fifo_wp;
 reg [LENGTH_WIDTH-1:0] wave_group_length, wave_group_length_next, wave_neighbor_length;
-reg reached;
 
 reg [GRID_WIDTH-1:0] path [0:MAX_LENGTH-1];
 reg [LENGTH_WIDTH-1:0] path_index;
@@ -122,7 +121,7 @@ end
 //--------------Code Starts Here------------------ 
 
 
-always@(posedge clk)
+always @(posedge clk)
 begin
 	if (reset == 1)
 		begin
@@ -130,11 +129,29 @@ begin
 		
 			for (index = 0; index < MAX_GRID; index = index + 1)
 			begin
+				grid[index] <= 'bX;
+				wave_fifo[index] <= 'bX;
 				wave_grid[index] <= 8'hFF;
 			end
 			
-			wave_fifo_rp <= 0;
-			wave_fifo_wp <= 0;
+			for (index = 0; index < MAX_LENGTH; index = index + 1)
+			begin
+				path[index] <= 'bX;
+			end
+			
+			for (index = 0; index < MAX_TERMINAL; index = index + 1)
+			begin
+				terminal[index] <= 'bX;
+			end			
+			read_index <= 'bX;
+			terminal_index <= 'bX;
+			path_index <= 'bX;
+			wave_grid_n <= 'bX;
+			wave_group_length <= 'bX; 
+			wave_group_length_next <= 'bX;
+			trace <= 'bX;			
+			wave_fifo_rp <= 'bX;
+			wave_fifo_wp <= 'bX;			
 			
 			clk_count <= 0;
 			T <= 0;
@@ -157,7 +174,9 @@ begin
 						address <= address + 1;
 						read_index <= 0;
 						terminal_index <= 0;
-						path_index <= 0;
+						path_index <= 0;						
+						wave_fifo_rp <= 0;
+						wave_fifo_wp <= 0;
 						
 						state <= READ;
 					end					
@@ -215,99 +234,82 @@ begin
 			begin
 				n_wave_fifo_wp = wave_fifo_wp;
 				wave_neighbor_length = 0;
-				reached = 0;
 				
 				if (wave_fifo_rp != wave_fifo_wp)
 				begin
 					if (grid[wave_fifo[wave_fifo_rp]] == 8'h00 && wave_grid[wave_fifo[wave_fifo_rp]])
-						reached = 1;
+					begin
+						wave_fifo_wp <= wave_fifo_rp;
+						trace <= wave_fifo[wave_fifo_rp];
+						path[path_index] <= wave_fifo[wave_fifo_rp];
+						path_index <= path_index + 1;						
+						terminal_index <= terminal_index - 1;						
+						address <= wave_fifo[wave_fifo_rp];
+						data_out <= 8'h00;
+						
+						state <= BACKTRACE;
+					end
 					else
 					begin
 						if (wave_fifo[wave_fifo_rp] % 8)
+						begin
+							if (grid[wave_fifo[wave_fifo_rp] - 1] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] - 1] == 8'hFF)
 							begin
-								if (grid[wave_fifo[wave_fifo_rp] - 1] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] - 1] == 8'hFF)
-								begin
-									wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] - 1;
-									wave_grid[wave_fifo[wave_fifo_rp] - 1] <= wave_grid_n + 1;
-									n_wave_fifo_wp = n_wave_fifo_wp + 1;
-									wave_neighbor_length = wave_neighbor_length + 1;
-								end
+								wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] - 1;
+								wave_grid[wave_fifo[wave_fifo_rp] - 1] <= wave_grid_n + 1;
+								n_wave_fifo_wp = n_wave_fifo_wp + 1;
+								wave_neighbor_length = wave_neighbor_length + 1;
 							end
+						end
 						if (wave_fifo[wave_fifo_rp] % 8 < 7)
+						begin
+							if (grid[wave_fifo[wave_fifo_rp] + 1] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] + 1] == 8'hFF)
 							begin
-								if (grid[wave_fifo[wave_fifo_rp] + 1] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] + 1] == 8'hFF)
-								begin
-									wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] + 1;
-									wave_grid[wave_fifo[wave_fifo_rp] + 1] <= wave_grid_n + 1;
-									n_wave_fifo_wp = n_wave_fifo_wp + 1;
-									wave_neighbor_length = wave_neighbor_length + 1;
-								end
+								wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] + 1;
+								wave_grid[wave_fifo[wave_fifo_rp] + 1] <= wave_grid_n + 1;
+								n_wave_fifo_wp = n_wave_fifo_wp + 1;
+								wave_neighbor_length = wave_neighbor_length + 1;
 							end
+						end
 						if (wave_fifo[wave_fifo_rp] > 7)
+						begin
+							if (grid[wave_fifo[wave_fifo_rp] - 8] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] - 8] == 8'hFF)
 							begin
-								if (grid[wave_fifo[wave_fifo_rp] - 8] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] - 8] == 8'hFF)
-								begin
-									wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] - 8;
-									wave_grid[wave_fifo[wave_fifo_rp] - 8] <= wave_grid_n + 1;
-									n_wave_fifo_wp = n_wave_fifo_wp + 1;
-									wave_neighbor_length = wave_neighbor_length + 1;
-								end
+								wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] - 8;
+								wave_grid[wave_fifo[wave_fifo_rp] - 8] <= wave_grid_n + 1;
+								n_wave_fifo_wp = n_wave_fifo_wp + 1;
+								wave_neighbor_length = wave_neighbor_length + 1;
 							end
+						end
 						if (wave_fifo[wave_fifo_rp] < 56)
+						begin
+							if (grid[wave_fifo[wave_fifo_rp] + 8] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] + 8] == 8'hFF)
 							begin
-								if (grid[wave_fifo[wave_fifo_rp] + 8] != 8'hFF && wave_grid[wave_fifo[wave_fifo_rp] + 8] == 8'hFF)
-								begin
-									wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] + 8;
-									wave_grid[wave_fifo[wave_fifo_rp] + 8] <= wave_grid_n + 1;
-									n_wave_fifo_wp = n_wave_fifo_wp + 1;
-									wave_neighbor_length = wave_neighbor_length + 1;
-								end
+								wave_fifo[n_wave_fifo_wp] <= wave_fifo[wave_fifo_rp] + 8;
+								wave_grid[wave_fifo[wave_fifo_rp] + 8] <= wave_grid_n + 1;
+								n_wave_fifo_wp = n_wave_fifo_wp + 1;
+								wave_neighbor_length = wave_neighbor_length + 1;
 							end
+						end
+							
+						wave_fifo_rp <= wave_fifo_rp + 1;
+						wave_fifo_wp <= n_wave_fifo_wp;
+						
+						if (wave_group_length == 1)
+						begin
+							wave_group_length <= wave_group_length_next + wave_neighbor_length;
+							wave_group_length_next <= 0;
+							wave_grid_n <= wave_grid_n + 1;
+						end
+						else
+						begin
+							wave_group_length <= wave_group_length - 1;
+							wave_group_length_next <= wave_group_length_next + wave_neighbor_length;
+						end
 					end
 				end
-
-				
-				if (reached)
-				begin
-					trace <= wave_fifo[wave_fifo_rp];
-					
-					wave_fifo_wp <= wave_fifo_rp;					
-					
-					path[path_index] <= wave_fifo[wave_fifo_rp];
-					path_index <= path_index + 1;					
-					
-					terminal_index <= terminal_index - 1;
-					
-					address <= wave_fifo[wave_fifo_rp];
-					data_out <= 8'h00;
-					
-					
-					state <= BACKTRACE;
-				end					
-				else if (wave_fifo_rp == wave_fifo_wp)
-				begin
-					
+				else
 					state <= FAIL;
-				end
-				else 
-				begin	
-					
-					wave_fifo_rp <= wave_fifo_rp + 1;
-					wave_fifo_wp <= n_wave_fifo_wp;
-					
-					if (wave_group_length == 1)
-					begin
-						wave_group_length <= wave_group_length_next + wave_neighbor_length;
-						wave_group_length_next <= 0;
-						wave_grid_n <= wave_grid_n + 1;
-					end
-					else
-					begin
-						wave_group_length <= wave_group_length - 1;
-						wave_group_length_next <= wave_group_length_next + wave_neighbor_length;
-					end
-					
-				end
 
 			end			
 		
@@ -401,7 +403,8 @@ begin
 		FAIL: state <= FAIL;
 		
 		DONE: state <= DONE;
-
+		
+		default: state <= FAIL;
 		endcase
 	end	
 
