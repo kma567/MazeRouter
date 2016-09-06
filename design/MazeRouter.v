@@ -4,7 +4,7 @@
 // Authors	   : Yang Zhang
 // Function    : Read "map" saved inside RAM and output routing 
 //-----------------------------------------------------
-`timescale 1ns/10ps
+`timescale 1ns/100ps
 module maze_router (
 reset		,
 start		,
