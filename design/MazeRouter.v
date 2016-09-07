@@ -356,42 +356,32 @@ begin
 						end
 						
 					trace <= n_trace;
-					wave_grid_n <= trace_grid_n;
-					
-					grid[trace] <= 8'h00;
-					wave_grid[trace] <= 8'hEE;
-					
+					wave_grid_n <= trace_grid_n;					
+					grid[trace] <= 8'h00;					
 					path[path_index] <= trace;
 					path_index <= path_index + 1;
 					
 				end				
 				else 
 				begin
-					T <= 1;
-					if (terminal_index)
-					begin					
-						n_wave_fifo_wp = wave_fifo_wp;						
-						for (index = 0; index < path_index; index = index + 1)
-						begin
-							wave_fifo[n_wave_fifo_wp] <= path[index];
-							n_wave_fifo_wp = n_wave_fifo_wp + 1;
-							
-						end
-						wave_fifo_wp <= n_wave_fifo_wp;
-						wave_group_length <= path_index;
-						wave_group_length_next <= 0;
-						wave_grid_n <= 0;
-							
-						for (index = 0; index < MAX_GRID; index = index + 1)
-						begin
-							if (wave_grid[index] == 8'hEE)
-								wave_grid[index] <= 8'h00;
-							else if (wave_grid[index])
-								wave_grid[index] <= 8'hFF;
-						end
+					T <= 1;	
+					for (index = 0; index < MAX_GRID; index = index + 1)
+						wave_grid[index] <= 8'hFF;
 						
-						state <= WAVE;
+					n_wave_fifo_wp = wave_fifo_wp;						
+					for (index = 0; index < path_index; index = index + 1)
+					begin
+						wave_grid[path[index]] <= 8'h00; 	//overwrite FF
+						wave_fifo[n_wave_fifo_wp] <= path[index];							
+						n_wave_fifo_wp = n_wave_fifo_wp + 1;							
 					end
+					wave_fifo_wp <= n_wave_fifo_wp;
+					wave_group_length <= path_index;
+					wave_group_length_next <= 0;
+					wave_grid_n <= 0;
+					
+					if (terminal_index)	
+						state <= WAVE;
 					else
 						state <= DONE;
 				end
